@@ -1,12 +1,13 @@
 package services
 
 import (
+	"log"
+	"net/http"
+
 	"github.com/PuerkitoBio/goquery"
 	"github.com/dixydo/olxmanager-server/db"
 	"github.com/dixydo/olxmanager-server/models"
 	"github.com/dixydo/olxmanager-server/structs"
-	"log"
-	"net/http"
 )
 
 func Parse() {
@@ -34,63 +35,56 @@ func Parse() {
 		}
 	})
 
+	orm := db.GetDatabase()
+
+	var adverts []models.Advert
+
 	for item := range attributeResults {
 		advert := models.Advert{}
 		advert.Title = item.Find("h6").Text()
-		item.Find("p").Each(func(i int, s *goquery.Selection) {
-			a := structs.Attribute{Key: "data-testid", Value: "ad-price"}
 
-			attr, ok := s.Attr(a.Key)
-			if ok && attr == a.Value {
+		item.Children().Find("p").Each(func(i int, s *goquery.Selection) {
+			result, ok := s.Attr("data-testid")
+
+			if ok && result == "ad-price" {
 				advert.Price = s.Text()
-			}
-
-			a = structs.Attribute{Key: "data-testid", Value: "location-date"}
-
-			attr, ok = s.Attr(a.Key)
-			if ok && attr == a.Value {
-				advert.Location = s.Text()
 			}
 		})
 
-		advert.Top = false
-		advert.New = false
+		item.Children().Find("div").Each(func(i int, s *goquery.Selection) {
+			result, ok := s.Attr("data-testid")
 
-		item.Find("div").Each(func(i int, s *goquery.Selection) {
-			a := structs.Attribute{Key: "title", Value: "Нові"}
-
-			attr, ok := s.Attr(a.Key)
-			if ok && attr == a.Value {
-				advert.New = true
-			}
-
-			a = structs.Attribute{Key: "title", Value: "Б/в"}
-
-			attr, ok = s.Attr(a.Key)
-			if ok && attr == a.Value {
-				advert.New = false
-			}
-
-			a = structs.Attribute{Key: "data-testid", Value: "adCard-featured"}
-
-			attr, ok = s.Attr(a.Key)
-			if ok && attr == a.Value {
+			if ok && result == "adCard-featured" {
 				advert.Top = true
 			}
 		})
 
-		orm := db.GetDatabase()
-		orm.Create(&advert)
+		item.Children().Find("span").Each(func(i int, s *goquery.Selection) {
+			result, ok := s.Attr("title")
+
+			if ok && result == "Вживане" {
+				advert.New = false
+			}
+
+			if ok && result == "Нове" {
+				advert.New = true
+			}
+		})
+
+		adverts = append(adverts, advert)
 	}
 
+	orm.Create(&adverts)
 }
 
 func FindByAttribute(a structs.Attribute, s *goquery.Selection, attributeResults chan *goquery.Selection) {
 	s.Each(func(i int, s *goquery.Selection) {
 
-		attr, ok := s.Attr(a.Key)
-		if ok && attr == a.Value {
+		value, ok := s.Attr(a.Key)
+		if ok && value == a.Value {
 			attributeResults <- s
 		}
 	})
+
+	close(attributeResults)
 }
