@@ -2,7 +2,7 @@ package db
 
 import (
 	"github.com/dixydo/olxmanager-server/models"
-	"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -19,8 +19,10 @@ func GetDatabase() *gorm.DB {
 
 	// auth := basicauth.New(opts)
 
-	dsn := "yevhen:password@tcp(127.0.0.1:3306)/olxmanager?charset=utf8mb4&parseTime=True&loc=Local"
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	db, err := gorm.Open(postgres.New(postgres.Config{
+		DSN:                  "user=yevhen password=password dbname=olxmanager port=5432",
+		PreferSimpleProtocol: true,
+	}), &gorm.Config{})
 
 	if err != nil {
 		panic("DB Error")
